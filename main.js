@@ -35,14 +35,14 @@ main.listen(3000, () => {
 });
 
 main.get("/", async (req, res) => {
-  const id = "665aa2ad3c5c5ce5ada302b0";
+  const id = "5a9427648b0beebeb69579e7";
   const user = await User.findById(id);
   const questions = await Question.find();
   res.render("landing", { user, questions });
 });
 main.post("/questions", async (req, res) => {
   const userEmail = req.query.email;
-  //const userId = "665aa2ad3c5c5ce5ada302b0";
+  //const userId = "5a9427648b0beebeb69579e7";
   const { title, link, topics ,solution} = req.body;
   const topicsArray = Array.isArray(topics) ? topics : [topics];
   const question = new Question({
@@ -168,7 +168,7 @@ main.post("/signin", async (req, res) => {
 main.post("/bookmark/:questionId/:email", async (req, res) => {
   const userEmail = req.params.email;
   console.log(userEmail);
-  //const userId = "665aa2ad3c5c5ce5ada302b0";
+  //const userId = "5a9427648b0beebeb69579e7";
   const questionId = req.params.questionId;
 
   const user = await User.findOne({email: userEmail});
@@ -190,7 +190,7 @@ main.post("/bookmark/:questionId/:email", async (req, res) => {
 
 main.get("/bookmarkquestions", async (req, res) => {
   const userEmail = req.query.email;
-  const userId = "665aa2ad3c5c5ce5ada302b0";
+  const userId = "5a9427648b0beebeb69579e7";
 
   try {
     const user = await User.findOne({ email: userEmail });
