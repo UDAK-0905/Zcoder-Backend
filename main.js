@@ -7,7 +7,7 @@ const session = require('cookie-session');
 const cors = require('cors');
 main.use(cors({
 
-  origin: 'http://localhost:5173',
+  origin: 'https://zcoderstage.vercel.app',
   methods: ['GET', 'POST']
 }));
 
