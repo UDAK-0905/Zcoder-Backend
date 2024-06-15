@@ -1,5 +1,8 @@
 # Zcoder: All Your Coding Challenges in One Place
 
+#Deployment link
+https://zcoderstage.vercel.app/home
+
 Welcome to Zcoder, the ultimate hub for all your bookmarked coding problems! Collect and manage your favorite challenges from various coding platforms in one place. Start solving and keep track of your progress effortlessly!
 
 ## Table of Contents
@@ -21,6 +24,8 @@ Zcoder is designed to help developers organize and manage coding challenges from
 - **Tagging System**: Categorize challenges with custom tags for easier navigation.
 - **Search and Filter**: Quickly find challenges by tags, difficulty, or platform. Search your friends follow them.
 - **User-friendly Interface**: Simple and intuitive UI for a seamless experience and personalised profile .
+Note: Some features are still in progress and may not be fully functional yet. We appreciate your patience and feedback as we continue to improve Zcoder
+- 
 
 ## Installation
 
