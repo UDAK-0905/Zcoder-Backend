@@ -4,6 +4,12 @@ const multer = require("multer");
 const session = require('cookie-session');
 
 
+const cors = require('cors');
+main.use(cors({
+
+  origin: 'http://localhost:5173',
+  methods: ['GET', 'POST']
+}));
 
 main.use(session({
   secret: 'your-secret-key',
@@ -38,6 +44,7 @@ main.get("/", async (req, res) => {
   const id = "5a9427648b0beebeb69579e7";
   const user = await User.findById(id);
   const questions = await Question.find();
+  console.log(user);
   res.render("landing", { user, questions });
 });
 main.post("/questions", async (req, res) => {
