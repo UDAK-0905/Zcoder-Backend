@@ -264,6 +264,7 @@ main.get('/profile', async (req, res) => {
     
        // console.log('Profile Image:', user.profile_image);
        // res.render('profile', { user });
+       
         return res.json({ user });
       
     }
@@ -366,12 +367,14 @@ main.get('/searchUser', async (req, res) => {
 });
 
 
-main.get("/profile", async (req, res) => {
-  const userId = req.query.userId;
+main.get("/profileid", async (req, res) => {
+const userId = req.query.userId;
 
+ 
   try {
     const user = await User.findById(userId);
-    res.render("profile", { user });
+    console.log(user);
+    return res.json({ user });
   } catch (error) {
     console.error(error);
     res.status(500).send("Internal Server Error");
@@ -398,8 +401,9 @@ main.post('/follow/:userId', async (req, res) => {
         await user.save();
     }
     
-
+     
       //res.render("profile", { user });
+      //console.log(user.following);
       return res.json({ user });
   } catch (error) {
       console.error("Error following user:", error);
