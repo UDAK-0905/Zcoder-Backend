@@ -2,13 +2,22 @@ const express = require("express");
 const main = express();
 const multer = require("multer");
 const session = require('cookie-session');
-
+const bodyParser = require("body-parser");
+const http = require('http');
+const socketIo = require('socket.io');
+const server = http.createServer(main);
+const io = socketIo(server, {
+  cors: {
+    origin: 'https://zcoderstage.vercel.app',
+    methods: ['GET', 'POST']
+  }
+});
 
 const cors = require('cors');
 main.use(cors({
-
   origin: 'https://zcoderstage.vercel.app',
-  methods: ['GET', 'POST']
+  methods: ['GET', 'POST'],
+  credentials: true
 }));
 
 main.use(session({
@@ -19,6 +28,58 @@ main.use(session({
 
 const User = require("./user");
 const Question = require("./questionschema");
+const Messages = require("./messageModel");
+
+main.use(bodyParser.json());
+
+// POST endpoint to send a message
+main.post("/friends", async (req, res) => {
+  const { senderEmail, receiverEmail, messageText } = req.body;
+
+  try {
+    const sender = await User.findOne({ email: senderEmail });
+    const receiver = await User.findOne({ email: receiverEmail });
+
+    if (!sender || !receiver) {
+      return res.status(404).json({ message: "Sender or receiver not found" });
+    }
+
+    const message = new Messages({
+      message: { text: messageText },
+      users: [sender._id, receiver._id],
+      sender: sender._id,
+    });
+
+    await message.save();
+
+    res.status(201).json(message);
+  } catch (error) {
+    console.error("Send Message Error:", error);
+    res.status(500).json({ message: "Failed to send message" });
+  }
+});
+
+main.get("/friends", async (req, res) => {
+  const { from, to } = req.query;
+
+  try {
+    const sender = await User.findOne({ email: from });
+    const receiver = await User.findOne({ email: to });
+
+    if (!sender || !receiver) {
+      return res.status(404).json({ message: "Sender or receiver not found" });
+    }
+
+    const messages = await Messages.find({
+      users: { $all: [sender._id, receiver._id] },
+    }).sort({ createdAt: 1 });
+
+    res.status(200).json(messages);
+  } catch (error) {
+    console.error("Fetch Chat Error:", error);
+    res.status(500).json({ message: "Failed to fetch chat messages" });
+  }
+});
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -36,9 +97,57 @@ main.set("view engine", "ejs");
 main.use(express.urlencoded({ extended: false }));
 main.use(express.static("./views"));
 
-main.listen(3000, () => {
-  console.log("port connected");
+
+io.on('connection', (socket) => {
+  console.log('a user connected');
+    // Event to receive the userId
+    socket.on('setUserId', (userId) => {
+      console.log(`User connected with ID: ${userId}`);
+    });
+
+  socket.on('sendMessage', async (messageData) => {
+    const { senderEmail, receiverEmail, messageText } = messageData;
+
+    try {
+      const sender = await User.findOne({ email: senderEmail });
+      const receiver = await User.findOne({ email: receiverEmail });
+
+      if (!sender || !receiver) {
+        return;
+      }
+
+      const message = new Messages({
+        message: { text: messageText },
+        users: [sender._id, receiver._id],
+        sender: sender._id,
+      });
+
+      await message.save();
+
+      io.emit('receiveMessage', {
+        message: { text: messageText },
+        users: [sender._id, receiver._id],
+        sender: sender._id,
+        receiver: receiver._id,
+      });
+
+    } catch (error) {
+      console.error("Send Message Error:", error);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    console.log('user disconnected');
+  });
 });
+
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
+
+
 
 main.get("/", async (req, res) => {
   const id = "5a9427648b0beebeb69579e7";
