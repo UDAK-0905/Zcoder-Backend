@@ -16,7 +16,7 @@ const io = socketIo(server, {
 
 const cors = require('cors');
 main.use(cors({
-  origin: 'https://zcoderstage.vercel.app/',
+  origin: 'https://zcoderstage.vercel.app',
   methods: ['GET', 'POST'],
   credentials: true
 }));
