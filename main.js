@@ -5,7 +5,7 @@ const session = require('cookie-session');
 const bodyParser = require("body-parser");
 const http = require('http');
 const socketIo = require('socket.io');
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const server = http.createServer(main);
 const io = socketIo(server, {
   cors: {
