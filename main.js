@@ -5,6 +5,7 @@ const session = require('cookie-session');
 const bodyParser = require("body-parser");
 const http = require('http');
 const socketIo = require('socket.io');
+const bcrypt = require('bcrypt');
 const server = http.createServer(main);
 const io = socketIo(server, {
   cors: {
@@ -15,7 +16,7 @@ const io = socketIo(server, {
 
 const cors = require('cors');
 main.use(cors({
-  origin: 'https://zcoderstage.vercel.app',
+  origin: 'https://zcoderstage.vercel.app/',
   methods: ['GET', 'POST'],
   credentials: true
 }));
@@ -29,6 +30,7 @@ main.use(session({
 const User = require("./user");
 const Question = require("./questionschema");
 const Messages = require("./messageModel");
+const Comment = require("./comment");
 
 main.use(bodyParser.json());
 
@@ -153,8 +155,9 @@ main.get("/", async (req, res) => {
   const id = "5a9427648b0beebeb69579e7";
   const user = await User.findById(id);
   const questions = await Question.find();
+  const comments = await Comment.find().populate('userId', 'userhandle');
   console.log(user);
-  res.render("landing", { user, questions });
+  res.render("landing", { user, questions , comments});
 });
 main.post("/questions", async (req, res) => {
   const userEmail = req.query.email;
@@ -197,6 +200,8 @@ main.post("/register", upload.single("profile_image"), async (req, res) => {
      
     }
 
+
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
    
 
     const user = new User({
@@ -207,9 +212,16 @@ main.post("/register", upload.single("profile_image"), async (req, res) => {
       email: req.body.email,
      userhandle: req.body.userhandle.toLowerCase(),
       profile_image: req.body.profile_image,
-      password: req.body.password,
+      password: hashedPassword,
       bookmark: [],
       following: [],
+      handles: {
+        "Codeforces": "https://codeforces.com/",
+        "Codechef": "https://codechef.com/",
+        "Atcoder": "https://atcoder.jp/",
+        "GeeksforGeeks": "https://www.geeksforgeeks.org/courses?source=google&medium=cpc&device=c&keyword=geeksforgeeks&matchtype=e&campaignid=20039445781&adgroup=147845288105&gad_source=1&gclid=Cj0KCQjwvb-zBhCmARIsAAfUI2v1KJMpGxPciw1K_nrOvdH4tBuCxdVuQQbIfXOMF4x508G9i4w9k6gaAq0uEALw_wcB",
+        "Leetcode": "https://leetcode.com/"
+      }
     
     });
      console.log(user);
@@ -249,7 +261,8 @@ main.post("/register", upload.single("profile_image"), async (req, res) => {
 main.post("/signin", async (req, res) => {
   try {
     const user = await User.findOne({ email: req.body.email });
-    if (user.password === req.body.password) {
+    const isMatch = await bcrypt.compare(req.body.password, user.password);
+    if (isMatch) {
       const questions = await Question.find();
       if (req.session.questionToBookmark) {
         user.bookmark.push(req.session.questionToBookmark);
@@ -262,7 +275,8 @@ main.post("/signin", async (req, res) => {
         });
         req.session.bookmark = null;
        // return res.render("bookmarkquestions", { user, bookmarkedQuestions });
-       return res.json({ user, bookmarkedQuestions });
+       const comments = await Comment.find().populate('userId', 'userhandle');
+       return res.json({ user, bookmarkedQuestions ,comments });
       }
 
       console.log(user);
@@ -363,7 +377,8 @@ main.get("/question", async (req, res) => {
   const userEmail = req.query.email;
   const user = await User.findOne({ email: userEmail });
   const questions = await Question.find();
-  return res.json({ user, questions });
+  const comments = await Comment.find().populate('userId', 'userhandle');
+  return res.json({ user, questions,comments });
 });
 
 main.get('/profile', async (req, res) => {
@@ -406,6 +421,8 @@ main.post("/update", async (req, res) => {
           email: req.body.email,
           userhandle: req.body.userhandle,
           password: req.body.password, 
+          about: req.body.about,
+      skills: Array.isArray(req.body.skills) ? req.body.skills : [req.body.skills]
     };
     console.log(updatedUserData);
 
@@ -522,4 +539,28 @@ main.post('/follow/:userId', async (req, res) => {
 
 
 
+main.post("/comment/:questionId/:userId", async (req, res) => {
+  const { questionId, userId } = req.params;
+  const { comment } = req.body;
+  // console.log('Question ID:', questionId);
+  // console.log('User ID:', userId);
+  // console.log('Comment:', comment);
 
+  try {
+    const newComment = new Comment({
+      questionId,
+      userId,
+      comment,
+    });
+
+    const user = await User.findById(userId);
+    await newComment.save();
+
+    const questions = await Question.find();
+    const comments = await Comment.find().populate('userId', 'userhandle');
+   
+    return res.json({ user, questions, comments });
+  } catch (error) {
+    res.status(500).send("Internal Server Error");
+  }
+});

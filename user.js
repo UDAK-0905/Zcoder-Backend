@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 require ('dotenv').config();
-mongoose.connect(process.env.Mongo_url)
+mongoose.connect('mongodb+srv://sanyam:12345@cluster0.unuwwj7.mongodb.net/sanyam123?retryWrites=true&w=majority&appName=Cluster0')
     .then(() => {
         console.log("mongodb connected");
     })
@@ -34,6 +34,8 @@ const userSchema = new mongoose.Schema({
   profile_image: {
     type: String
   },
+  about: { type: String },
+  skills: { type: [String] },
   userhandle: {
     type: String,
     unique: true,
