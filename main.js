@@ -26,7 +26,7 @@ main.use(session({
   resave: false,
   saveUninitialized: true
 }));
-
+const onlineUsers = {};
 const User = require("./user");
 const Question = require("./questionschema");
 const Messages = require("./messageModel");
@@ -100,49 +100,66 @@ main.use(express.urlencoded({ extended: false }));
 main.use(express.static("./views"));
 
 
-io.on('connection', (socket) => {
-  console.log('a user connected');
-    // Event to receive the userId
-    socket.on('setUserId', (userId) => {
-      console.log(`User connected with ID: ${userId}`);
-    });
 
-  socket.on('sendMessage', async (messageData) => {
-    const { senderEmail, receiverEmail, messageText } = messageData;
 
-    try {
-      const sender = await User.findOne({ email: senderEmail });
-      const receiver = await User.findOne({ email: receiverEmail });
 
-      if (!sender || !receiver) {
-        return;
-      }
-
-      const message = new Messages({
-        message: { text: messageText },
-        users: [sender._id, receiver._id],
-        sender: sender._id,
+    io.on('connection', (socket) => {
+      console.log('a user connected');
+    
+      socket.on('setUserId', (userId) => {
+        onlineUsers[userId] = socket.id;
+        io.emit('userOnline', onlineUsers);
+    
+      
+        
+        });
+        socket.on('sendMessage', async (messageData) => {
+          const { senderEmail, receiverEmail, messageText } = messageData;
+      
+          try {
+            const sender = await User.findOne({ email: senderEmail });
+            const receiver = await User.findOne({ email: receiverEmail });
+      
+            if (!sender || !receiver) {
+              return;
+            }
+      
+            const message = new Messages({
+              message: { text: messageText },
+              users: [sender._id, receiver._id],
+              sender: sender._id,
+            });
+      
+            await message.save();
+      
+            io.emit('receiveMessage', {
+              message: { text: messageText },
+              users: [sender._id, receiver._id],
+              sender: sender._id,
+              receiver: receiver._id,
+              senderhandle:sender.userhandle,
+            });
+      
+          } catch (error) {
+            console.error("Send Message Error:", error);
+          }
+        });
+      
+        socket.on('typing', ({ from, to, typing }) => {
+          if (onlineUsers[to]) {
+            io.to(onlineUsers[to]).emit('typing', { from, typing });
+          }
+        });
+      
+        socket.on('disconnect', () => {
+            const userId = Object.keys(onlineUsers).find((key) => onlineUsers[key] === socket.id);
+          if (userId) {
+            delete onlineUsers[userId];
+            io.emit('userOnline', onlineUsers);
+          }
+          console.log('User disconnected:', socket.id);
+        });
       });
-
-      await message.save();
-
-      io.emit('receiveMessage', {
-        message: { text: messageText },
-        users: [sender._id, receiver._id],
-        sender: sender._id,
-        receiver: receiver._id,
-      });
-
-    } catch (error) {
-      console.error("Send Message Error:", error);
-    }
-  });
-
-  socket.on('disconnect', () => {
-    console.log('user disconnected');
-  });
-});
-
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
