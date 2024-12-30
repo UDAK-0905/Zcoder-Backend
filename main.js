@@ -40,7 +40,7 @@ main.use(session({
 main.use(express.json());
 main.set("view engine", "ejs");
 main.use(express.urlencoded({ extended: false }));
-main.use(express.static("./views"));
+
 
 
 
