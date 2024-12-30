@@ -31,9 +31,6 @@ const userSchema = new mongoose.Schema({
     unique: true,
     match: [/.+@.+\..+/, 'Please enter a valid email address']
   },
-  profile_image: {
-    type: String
-  },
   about: { type: String },
   skills: { type: [String] },
   userhandle: {

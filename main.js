@@ -1,17 +1,27 @@
 const express = require("express");
 const main = express();
-const multer = require("multer");
 const session = require('cookie-session');
 const bodyParser = require("body-parser");
 const http = require('http');
 const socketIo = require('socket.io');
 const bcrypt = require('bcryptjs');
 const server = http.createServer(main);
+main.use(express.json());
 const io = socketIo(server, {
   cors: {
     origin: 'https://zcoderstage.vercel.app',
     methods: ['GET', 'POST']
   }
+});
+const onlineUsers = {};
+const User = require("./user");
+const Question = require("./questionschema");
+const Messages = require("./messageModel");
+const Comment = require("./comment");
+
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
 });
 
 const cors = require('cors');
@@ -26,13 +36,13 @@ main.use(session({
   resave: false,
   saveUninitialized: true
 }));
-const onlineUsers = {};
-const User = require("./user");
-const Question = require("./questionschema");
-const Messages = require("./messageModel");
-const Comment = require("./comment");
 
-main.use(bodyParser.json());
+main.use(express.json());
+main.set("view engine", "ejs");
+main.use(express.urlencoded({ extended: false }));
+main.use(express.static("./views"));
+
+
 
 // POST endpoint to send a message
 main.post("/friends", async (req, res) => {
@@ -83,21 +93,7 @@ main.get("/friends", async (req, res) => {
   }
 });
 
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    return cb(null, "./views/uploads");
-  },
-  filename: function (req, file, cb) {
-    return cb(null, `${Date.now()}-${file.originalname}`);
-  },
-});
 
-const upload = multer({ storage });
-
-main.use(express.json());
-main.set("view engine", "ejs");
-main.use(express.urlencoded({ extended: false }));
-main.use(express.static("./views"));
 
 
 
@@ -161,21 +157,10 @@ main.use(express.static("./views"));
         });
       });
 
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
 
 
 
-main.get("/", async (req, res) => {
-  const id = "5a9427648b0beebeb69579e7";
-  const user = await User.findById(id);
-  const questions = await Question.find();
-  const comments = await Comment.find().populate('userId', 'userhandle');
-  console.log(user);
-  res.render("landing", { user, questions , comments});
-});
+
 main.post("/questions", async (req, res) => {
   const userEmail = req.query.email;
   //const userId = "5a9427648b0beebeb69579e7";
@@ -207,74 +192,70 @@ main.post("/questions", async (req, res) => {
 });
 
 
-main.post("/register", upload.single("profile_image"), async (req, res) => {
+main.post("/register", async (req, res) => {
+  
   try {
-
-   
-    if (!req.file) {
-      console.log("here");
-      return res.status(400).send("No file uploaded.");
-     
-    }
-
-
-    const hashedPassword = await bcrypt.hash(req.body.password, 10);
-   
-
+    // Hash the password
+    const data = req.body.credentials
+    // Create a new user object
     const user = new User({
-      first_name: req.body.first_name,
-      last_name: req.body.last_name,
-      city: req.body.city,
-      college: req.body.college,
-      email: req.body.email,
-     userhandle: req.body.userhandle.toLowerCase(),
-      profile_image: req.body.profile_image,
-      password: hashedPassword,
+      first_name: data.first_name,
+      last_name: data.last_name,
+      city: data.city,
+      college: data.college,
+      email: data.email,
+      userhandle: data.userhandle,
+      password: data.password,
       bookmark: [],
       following: [],
       handles: {
-        "Codeforces": "https://codeforces.com/",
-        "Codechef": "https://codechef.com/",
-        "Atcoder": "https://atcoder.jp/",
-        "GeeksforGeeks": "https://www.geeksforgeeks.org/courses?source=google&medium=cpc&device=c&keyword=geeksforgeeks&matchtype=e&campaignid=20039445781&adgroup=147845288105&gad_source=1&gclid=Cj0KCQjwvb-zBhCmARIsAAfUI2v1KJMpGxPciw1K_nrOvdH4tBuCxdVuQQbIfXOMF4x508G9i4w9k6gaAq0uEALw_wcB",
-        "Leetcode": "https://leetcode.com/"
+        Codeforces: "https://codeforces.com/",
+        Codechef: "https://codechef.com/",
+        Atcoder: "https://atcoder.jp/",
+        GeeksforGeeks: "https://www.geeksforgeeks.org/",
+        Leetcode: "https://leetcode.com/"
       }
-    
     });
-     console.log(user);
+
+    console.log("User created:", user);
 
     try {
+      // Save the user to the database
       await user.save();
-      const questions = await Question.find();
+
+      // Add any session-based bookmarked question
       if (req.session.questionToBookmark) {
         user.bookmark.push(req.session.questionToBookmark);
         await user.save();
         req.session.questionToBookmark = null;
       }
+
+      // Fetch all questions and handle session bookmarks
+      const questions = await Question.find();
       if (req.session.bookmark) {
         const bookmarkedQuestions = await Question.find({
           _id: { $in: user.bookmark },
         });
-       // res.render("bookmarkquestions", { user, bookmarkedQuestions });
         req.session.bookmark = null;
-        return;
+        return res.json({ user, bookmarkedQuestions });
       }
-     return res.json({ user, questions });
+
+      // Send the user and questions data as JSON
+      return res.json({ user, questions });
     } catch (err) {
       if (err.code === 11000) {
+        console.error("Duplicate key error:", err);
         return res.status(400).send("Email already exists");
       } else {
-        console.error("Error inserting data into MongoDB:", err);
+        console.error("Error saving user to database:", err);
         return res.status(500).send("Internal Server Error");
-
       }
     }
   } catch (error) {
     console.error("Error processing request:", error);
-    res.status(500).send("Error occurred");
+    return res.status(500).send("Error occurred");
   }
 });
-
 main.post("/signin", async (req, res) => {
   try {
     const user = await User.findOne({ email: req.body.email });
@@ -291,20 +272,17 @@ main.post("/signin", async (req, res) => {
           _id: { $in: user.bookmark },
         });
         req.session.bookmark = null;
-       // return res.render("bookmarkquestions", { user, bookmarkedQuestions });
        const comments = await Comment.find().populate('userId', 'userhandle');
        return res.json({ user, bookmarkedQuestions ,comments });
       }
 
       console.log(user);
-      //res.render("landing", { user, questions });
       return res.json({ user, questions });
     } else {
 
      
       console.log("Invalid credentials");
       return res.status(401).json({ message: "Invalid credentials" });
-      //res.render("signin1");
     }
   } catch {
     
@@ -315,7 +293,6 @@ main.post("/signin", async (req, res) => {
 main.post("/bookmark/:questionId/:email", async (req, res) => {
   const userEmail = req.params.email;
   console.log(userEmail);
-  //const userId = "5a9427648b0beebeb69579e7";
   const questionId = req.params.questionId;
 
   const user = await User.findOne({email: userEmail});
@@ -337,8 +314,6 @@ main.post("/bookmark/:questionId/:email", async (req, res) => {
 
 main.get("/bookmarkquestions", async (req, res) => {
   const userEmail = req.query.email;
-  const userId = "5a9427648b0beebeb69579e7";
-
   try {
     const user = await User.findOne({ email: userEmail });
     if (user) {
@@ -399,12 +374,8 @@ main.get("/question", async (req, res) => {
 });
 
 main.get('/profile', async (req, res) => {
-  const userId = "6662cd42490ac3d411468604";
   try {
     const user = await User.findOne({ email: req.query.email });
-    
-       // console.log('Profile Image:', user.profile_image);
-       // res.render('profile', { user });
        
         return res.json({ user });
       
